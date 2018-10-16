@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>JS Snake fast game</title>
+
+		<style>
+			canvas {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				margin: -200px 0 0 -200px;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas id="gx"></canvas>
+
+		<script>
+			const GAME_KEYS = {
+				LEFT: 37,
+				UP: 38,
+				RIGHT: 39,
+				DOWN: 40
+			};
+
+			class Copiable{
+				copy(){}
+			}
+
+			class Vector extends Copiable{
+				constructor(x, y){
+					super();
+
+					this.x = x;
+					this.y = y;
+				}
+
+				amplificate(k){
+					this.x *= k;
+					this.y *= k;
+				}
+
+				add(vector){
+					this.x += vector.x;
+					this.y += vector.y;
+				}
+
+				copy(){
+					return new Vector(this.x, this.y);
+				}
+
+				randonizeVector(randonizer){
+					this.x = randonizer();
+					this.y = randonizer();
+				}
+
+				compare(vector){
+					return (this.x == vector.x && this.y == vector.y)
+				}
+			}
+
+			class Dimension{
+				constructor(width, height){
+					this.width = width;
+					this.height = height;
+				}
+			}
+
+			class Game{
+				static get CONTEXT_2D(){
+					return "2d";
+				}
+
+				static get CONTEXT_3D(){
+					return "3d";
+				}
+
+				static get CANVAS_ID(){
+					return "gx";
+				}
+
+				constructor(){
+					this.canvas = {};
+					this.gcontext = {};
+				}
+
+				setUp(){}
+				run(){}
+			}
+
+			class KeyAdapter {
+				handle(ctx){}
+			}
+
+			class SnakeKeyAdapter extends KeyAdapter{
+				constructor(){
+					super();
+				}
+
+				handle(ctx){
+					document.addEventListener("keydown", function(event){
+						let key = event.keyCode;
+
+						if(key === GAME_KEYS.LEFT){
+							ctx.velocityVector.x -= 1;
+							ctx.velocityVector.y = 0;
+						}else if(key === GAME_KEYS.UP){
+							ctx.velocityVector.x = 0;
+							ctx.velocityVector.y -= 1;
+						}else if(key === GAME_KEYS.RIGHT){
+							ctx.velocityVector.x = 1;
+							ctx.velocityVector.y = 0;
+						}else if(key === GAME_KEYS.DOWN){
+							ctx.velocityVector.x = 0;
+							ctx.velocityVector.y = 1;
+						}
+					});
+				}
+			}
+
+			class SnakeGame extends Game{
+				static get GRID_SIZE(){
+					return 20; //cause 20x20 400 (Game Height)
+				}
+
+				static get SQUARE_SIZE(){
+					return SnakeGame.GRID_SIZE-2;
+				}
+
+				static get CANVAS_COLOR(){
+					return "black";
+				}
+
+				static get SNAKE_COLOR(){
+					return "lime";
+				}
+
+				static get FOOD_COLOR(){
+					return "red";
+				}
+
+				static get TAIL_SIZE(){
+					return 5;
+				}
+
+				constructor(){
+					super();
+
+					this.canvasDimensions = new Dimension(400, 400);
+					this.keyAdapter = new SnakeKeyAdapter(this);
+
+					this.velocityVector = new Vector(0, 0);
+					this.foodVector = new Vector(15, 15);
+					this.playerVector = new Vector(10, 10);
+
+					this.snakeTail = [];
+					this.snakeTailSize = SnakeGame.TAIL_SIZE;
+				}
+
+				setUp(){
+					this.buildCanvas();
+					this.keyAdapter.handle(this);
+				}
+
+				buildCanvas(){
+					let context = this;
+
+					document.addEventListener("DOMContentLoaded", function(){
+						context.canvas = document.getElementById(SnakeGame.CANVAS_ID);
+						context.gcontext = context.canvas.getContext(SnakeGame.CONTEXT_2D);
+
+						context.gcontext.canvas.width = context.canvasDimensions.width;
+						context.gcontext.canvas.height = context.canvasDimensions.height;
+					});
+				}
+
+				correctPlayerPosition(){
+					// correct x position
+					if(this.playerVector.x < 0)
+						this.playerVector.x = SnakeGame.GRID_SIZE-1;
+					else if(this.playerVector.x > SnakeGame.GRID_SIZE-1)
+						this.playerVector.x = 0;
+
+					//correct y position
+					if(this.playerVector.y < 0)
+						this.playerVector.y = SnakeGame.GRID_SIZE-1;
+					else if(this.playerVector.y > SnakeGame.GRID_SIZE-1)
+						this.playerVector.y = 0;
+				}
+
+				paintCanvas(){
+					this.gcontext.fillStyle = SnakeGame.CANVAS_COLOR;
+					this.gcontext.fillRect(0, 0, this.canvasDimensions.width, this.canvasDimensions.height);
+				}
+
+				paintSnake(){
+					this.gcontext.fillStyle = SnakeGame.SNAKE_COLOR;
+
+					for(let i=0, squarePosition; i<this.snakeTail.length; i++){
+						squarePosition = this.snakeTail[i];
+
+						this.gcontext.fillRect(
+							squarePosition.x*SnakeGame.GRID_SIZE,
+							squarePosition.y*SnakeGame.GRID_SIZE,
+							SnakeGame.SQUARE_SIZE,
+							SnakeGame.SQUARE_SIZE
+						);
+
+						if(squarePosition.compare(this.playerVector)){
+							this.snakeTailSize = SnakeGame.TAIL_SIZE;
+						}
+					}
+				}
+
+				paintFood(){
+					this.gcontext.fillStyle = SnakeGame.FOOD_COLOR;
+
+					this.gcontext.fillRect(
+						this.foodVector.x*SnakeGame.GRID_SIZE, 
+						this.foodVector.y*SnakeGame.GRID_SIZE,
+						SnakeGame.SQUARE_SIZE,
+						SnakeGame.SQUARE_SIZE
+					);
+				}
+
+				checkCollisions(){
+					if(this.foodVector.compare(this.playerVector)){
+						this.snakeTailSize++;
+						this.foodVector.randonizeVector(() => Math.floor(Math.random()*SnakeGame.GRID_SIZE));
+					}
+				}
+
+				removeSquaresIfLost(){
+					this.snakeTail.push(this.playerVector.copy());
+
+					while(this.snakeTail.length > this.snakeTailSize)
+						this.snakeTail.shift();
+				}
+
+				run(){
+					let context = this;
+
+					return function(){
+						context.paintCanvas();
+						context.playerVector.add(context.velocityVector);
+						context.correctPlayerPosition();
+						context.paintFood();
+						context.paintSnake();
+						context.checkCollisions();
+						context.removeSquaresIfLost();
+					};
+				}
+			}
+
+			class GameLoop{
+				static get DEFAULT_REFRESH_RATE(){
+					return 1000/20;
+				}
+
+				constructor(rr){
+					this.refreshRate = (rr !== undefined)?rr:GameLoop.DEFAULT_REFRESH_RATE;
+					this.intervalId = 0;
+				}
+
+				init(game){}
+			}
+
+			class SnakeGameLoop extends GameLoop{
+				constructor(rr){
+					super(rr);
+				}
+
+				init(game){
+					game.setUp();
+
+					this.intervalId = setInterval(
+						game.run(),
+						this.refreshRate
+					);
+				}
+			}
+
+			var snakeGame = new SnakeGame();
+			(new SnakeGameLoop()).init(snakeGame);
+		</script>
+	</body>
+</html>
